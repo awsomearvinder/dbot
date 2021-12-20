@@ -45,9 +45,9 @@ where
     T: Deserialize<'a>,
 {
     let mut d = Deserializer::from(s);
-    let t = T::deserialize(&mut d);
+    let t = T::deserialize(&mut d)?;
     if d.input.is_empty() {
-        t
+        Ok(t)
     } else {
         Err(Error::TrailingCharacters { trailing: d.input })
     }
@@ -124,7 +124,22 @@ where
     where
         V: de::Visitor<'de>,
     {
-        unimplemented!()
+        self.input = self.input.trim();
+        let numeric_digits = self
+            .input
+            .chars()
+            .take_while(|c| char::is_ascii_digit(c) || *c == '-');
+        let index_of_last_char = numeric_digits.enumerate().map(|(i, c)| i).last();
+        if let Some(i) = index_of_last_char {
+            let int = (&self.input[0..i + 1])
+                .parse()
+                .map_err(|_| Error::InvalidType)?;
+            let out = visitor.visit_i8(int);
+            self.input = &self.input[i + 1..];
+            out
+        } else {
+            Err(Error::InvalidType)
+        }
     }
 
     fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -400,5 +415,24 @@ mod tests {
             from_str::<(String, bool)>("\"test one two false\" false"),
             Ok((String::from("test one two false"), false))
         )
+    }
+    #[test]
+    fn i8() {
+        assert_eq!(from_str::<i8>("5"), Ok(5))
+    }
+    #[test]
+    fn empty_i8() {
+        assert_eq!(from_str::<i8>(""), Err(Error::InvalidType))
+    }
+    #[test]
+    fn overflowing_i8() {
+        assert_eq!(
+            from_str::<i8>(&format!("{}", i32::MAX)),
+            Err(Error::InvalidType)
+        )
+    }
+    #[test]
+    fn negative() {
+        assert_eq!(from_str::<i8>(&format!("{}", i8::MIN)), Ok(i8::MIN))
     }
 }
