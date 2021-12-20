@@ -109,7 +109,15 @@ where
     where
         V: de::Visitor<'de>,
     {
-        unimplemented!()
+        if let Some(v) = self.input.trim().strip_prefix("true") {
+            self.input = v;
+            visitor.visit_bool(true)
+        } else if let Some(v) = self.input.trim().strip_prefix("false") {
+            self.input = v;
+            visitor.visit_bool(false)
+        } else {
+            Err(Error::InvalidType)
+        }
     }
 
     fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -364,6 +372,33 @@ mod tests {
         assert_eq!(
             from_str::<(String, String)>("\"test one two three\" a"),
             Ok((String::from("test one two three"), String::from("a")))
+        )
+    }
+    // It'd be nice to make this work one day, but it dosen't right now. :(
+    #[test]
+    fn test_string_no_quote_followed_by_bool() {
+        assert_eq!(
+            from_str::<(String, bool)>("yay one two true"),
+            Err(Error::InvalidType)
+        )
+    }
+    // this works though.
+    #[test]
+    fn test_bool_followed_by_string() {
+        assert_eq!(
+            from_str::<(bool, String)>("true yay one two"),
+            Ok((true, String::from("yay one two")))
+        )
+    }
+    #[test]
+    fn bool() {
+        assert_eq!(from_str::<bool>("true"), Ok(true))
+    }
+    #[test]
+    fn quote_string_followed_by_bool() {
+        assert_eq!(
+            from_str::<(String, bool)>("\"test one two false\" false"),
+            Ok((String::from("test one two false"), false))
         )
     }
 }
