@@ -62,7 +62,7 @@ where
         V: de::Visitor<'de>,
     {
         use std::ops::ControlFlow;
-
+        self.input = self.input.trim();
         let mut graphemes = self.input.grapheme_indices(true);
         let s = graphemes.try_fold((String::new(), false, 0), |(acc, escaped, _), (i, next)| {
             if escaped {
@@ -363,7 +363,7 @@ mod tests {
     fn quote_string_followed_by_unquoted() {
         assert_eq!(
             from_str::<(String, String)>("\"test one two three\" a"),
-            Ok((String::from("test one two three"), String::from(" a")))
+            Ok((String::from("test one two three"), String::from("a")))
         )
     }
 }
