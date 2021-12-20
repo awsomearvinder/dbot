@@ -88,7 +88,7 @@ where
         // Is there a way to get rid of this index?
         // Changing the code above might cause a panic currently if byte_offset >= len (although we know that it won't ever be that.)
         self.input = &self.input[byte_offset..];
-        return visitor.visit_string(s);
+        visitor.visit_string(s)
     }
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
