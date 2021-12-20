@@ -52,6 +52,31 @@ where
         Err(Error::TrailingCharacters { trailing: d.input })
     }
 }
+macro_rules! impl_deserialize_int {
+    ($a: ident, $b: ident) => {
+        fn $a<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+        where
+            V: de::Visitor<'de>,
+        {
+            self.input = self.input.trim();
+            let numeric_digits = self
+                .input
+                .chars()
+                .take_while(|c| char::is_ascii_digit(c) || *c == '-');
+            let index_of_last_char = numeric_digits.enumerate().map(|(i, c)| i).last();
+            if let Some(i) = index_of_last_char {
+                let int = (&self.input[0..i + 1])
+                    .parse()
+                    .map_err(|_| Error::InvalidType)?;
+                let out = visitor.$b(int);
+                self.input = &self.input[i + 1..];
+                out
+            } else {
+                Err(Error::InvalidType)
+            }
+        }
+    };
+}
 impl<'de, 'a> de::Deserializer<'de> for &'a mut Deserializer<'de>
 where
     'de: 'a,
@@ -119,77 +144,16 @@ where
             Err(Error::InvalidType)
         }
     }
-
-    fn deserialize_i8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.input = self.input.trim();
-        let numeric_digits = self
-            .input
-            .chars()
-            .take_while(|c| char::is_ascii_digit(c) || *c == '-');
-        let index_of_last_char = numeric_digits.enumerate().map(|(i, c)| i).last();
-        if let Some(i) = index_of_last_char {
-            let int = (&self.input[0..i + 1])
-                .parse()
-                .map_err(|_| Error::InvalidType)?;
-            let out = visitor.visit_i8(int);
-            self.input = &self.input[i + 1..];
-            out
-        } else {
-            Err(Error::InvalidType)
-        }
-    }
-
-    fn deserialize_i16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
-    }
-
-    fn deserialize_i32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
-    }
-
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
-    }
-
-    fn deserialize_u8<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
-    }
-
-    fn deserialize_u16<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
-    }
-
-    fn deserialize_u32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
-    }
-
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
-    }
+    impl_deserialize_int! {deserialize_i8, visit_i8}
+    impl_deserialize_int! {deserialize_i16, visit_i16}
+    impl_deserialize_int! {deserialize_i32, visit_i32}
+    impl_deserialize_int! {deserialize_i64, visit_i64}
+    impl_deserialize_int! {deserialize_i128, visit_i128}
+    impl_deserialize_int! {deserialize_u8, visit_u8}
+    impl_deserialize_int! {deserialize_u16, visit_u16}
+    impl_deserialize_int! {deserialize_u32, visit_u32}
+    impl_deserialize_int! {deserialize_u64, visit_u64}
+    impl_deserialize_int! {deserialize_u128, visit_u128}
 
     fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -432,7 +396,21 @@ mod tests {
         )
     }
     #[test]
-    fn negative() {
+    fn negative_i8() {
         assert_eq!(from_str::<i8>(&format!("{}", i8::MIN)), Ok(i8::MIN))
+    }
+    #[test]
+    fn negative_u8() {
+        assert_eq!(
+            from_str::<u8>(&format!("{}", i8::MIN)),
+            Err(Error::InvalidType)
+        )
+    }
+    #[test]
+    fn i8_then_u8() {
+        assert_eq!(
+            from_str::<(i8, u8)>(&format!("{} {}", i8::MIN, u8::MAX)),
+            Ok((i8::MIN, u8::MAX))
+        )
     }
 }
