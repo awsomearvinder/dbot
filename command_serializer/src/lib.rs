@@ -205,7 +205,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        unimplemented!()
+        visitor.visit_unit()
     }
 
     fn deserialize_unit_struct<V>(
@@ -216,7 +216,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        unimplemented!()
+        self.deserialize_unit(visitor)
     }
 
     fn deserialize_newtype_struct<V>(
@@ -227,7 +227,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        unimplemented!()
+        self.deserialize_unit(visitor)
     }
 
     fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -322,6 +322,7 @@ impl<'a, 'de: 'a> SeqAccess<'de> for CommandList<'a, 'de> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::Deserialize;
     #[test]
     fn string_impl_no_quotes() {
         assert_eq!(
@@ -416,5 +417,15 @@ mod tests {
             from_str::<(i8, u8)>(&format!("{} {}", i8::MIN, u8::MAX)),
             Ok((i8::MIN, u8::MAX))
         )
+    }
+    #[derive(Deserialize, Debug, PartialEq, Eq)]
+    struct A;
+    #[test]
+    fn test_unit_struct() {
+        assert_eq!(from_str::<A>(""), Ok(A))
+    }
+    #[test]
+    fn test_unit() {
+        assert_eq!(from_str::<()>(""), Ok(()))
     }
 }
