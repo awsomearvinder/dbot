@@ -253,7 +253,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        unimplemented!()
+        self.deserialize_seq(visitor)
     }
 
     fn deserialize_map<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -349,6 +349,24 @@ mod tests {
         assert_eq!(
             from_str::<(String, String)>("\"test one two three\""),
             Ok((String::from("test one two three"), String::from("")))
+        )
+    }
+    #[derive(Deserialize, Debug, PartialEq, Eq)]
+    struct B(i32, String);
+    #[test]
+    fn test_tuple_struct() {
+        assert_eq!(
+            from_str::<B>("5 Test one two three"),
+            Ok(B(5, String::from("Test one two three")))
+        )
+    }
+    #[derive(Deserialize, Debug, PartialEq, Eq)]
+    struct C(String, i32);
+    #[test]
+    fn test_tuple_struct_rev() {
+        assert_eq!(
+            from_str::<C>("\"test one two\" 3"),
+            Ok(C(String::from("test one two"), 3))
         )
     }
     #[test]
