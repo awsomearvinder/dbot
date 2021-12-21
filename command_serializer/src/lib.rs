@@ -65,11 +65,15 @@ macro_rules! impl_deserialize_int {
                 .take_while(|c| char::is_ascii_digit(c) || *c == '-');
             let index_of_last_char = numeric_digits.enumerate().map(|(i, c)| i).last();
             if let Some(i) = index_of_last_char {
-                let int = (&self.input[0..i + 1])
-                    .parse()
-                    .map_err(|_| Error::InvalidType)?;
+                let int = self
+                    .input
+                    .get(0..i + 1)
+                    .ok_or(Error::InvalidType) // There shouldn't be any code path that gets here, but if there is,
+                    // we do *not* want to panic, so better to just return an error.
+                    .and_then(|s| s.parse().map_err(|_| Error::InvalidType))?;
                 let out = visitor.$b(int);
-                self.input = &self.input[i + 1..];
+                // If i + 1 is out of bounds, the remaining string must be empty logically.
+                self.input = &self.input.get(i + 1..).unwrap_or("");
                 out
             } else {
                 Err(Error::InvalidType)
