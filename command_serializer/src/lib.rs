@@ -53,16 +53,27 @@ where
     }
 }
 macro_rules! impl_deserialize_int {
-    ($a: ident, $b: ident) => {
-        fn $a<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    ($method_name: ident, $visitor_method_name: ident) => {
+        impl_deserialize_num! {$method_name, $visitor_method_name, |c| {
+            char::is_ascii_digit(c) || *c == '-'
+        }}
+    };
+}
+macro_rules! impl_deserialize_float {
+    ($method_name: ident, $visitor_method_name: ident) => {
+        impl_deserialize_num! {$method_name, $visitor_method_name, |c| {
+            char::is_ascii_digit(c) || *c == '-' || *c == '.'
+        }}
+    };
+}
+macro_rules! impl_deserialize_num {
+    ($method_name: ident, $visitor_method_name: ident, $num_can_contain: expr) => {
+        fn $method_name<V>(self, visitor: V) -> Result<V::Value, Self::Error>
         where
             V: de::Visitor<'de>,
         {
             self.input = self.input.trim();
-            let numeric_digits = self
-                .input
-                .chars()
-                .take_while(|c| char::is_ascii_digit(c) || *c == '-');
+            let numeric_digits = self.input.chars().take_while($num_can_contain);
             let index_of_last_char = numeric_digits.enumerate().map(|(i, c)| i).last();
             if let Some(i) = index_of_last_char {
                 let int = self
@@ -71,7 +82,7 @@ macro_rules! impl_deserialize_int {
                     .ok_or(Error::InvalidType) // There shouldn't be any code path that gets here, but if there is,
                     // we do *not* want to panic, so better to just return an error.
                     .and_then(|s| s.parse().map_err(|_| Error::InvalidType))?;
-                let out = visitor.$b(int);
+                let out = visitor.$visitor_method_name(int);
                 // If i + 1 is out of bounds, the remaining string must be empty logically.
                 self.input = &self.input.get(i + 1..).unwrap_or("");
                 out
@@ -158,20 +169,9 @@ where
     impl_deserialize_int! {deserialize_u32, visit_u32}
     impl_deserialize_int! {deserialize_u64, visit_u64}
     impl_deserialize_int! {deserialize_u128, visit_u128}
-
-    fn deserialize_f32<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
-    }
-
-    fn deserialize_f64<V>(self, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: de::Visitor<'de>,
-    {
-        unimplemented!()
-    }
+    //note: we don't accept infinity, negative infinity, NaN, or any of those shennanigans.
+    impl_deserialize_float! {deserialize_f32, visit_f32}
+    impl_deserialize_float! {deserialize_f64, visit_f64}
 
     fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
@@ -435,6 +435,14 @@ mod tests {
             from_str::<(i8, u8)>(&format!("{} {}", i8::MIN, u8::MAX)),
             Ok((i8::MIN, u8::MAX))
         )
+    }
+    #[test]
+    fn f32() {
+        assert_eq!(from_str::<f32>("0.53"), Ok(0.53))
+    }
+    #[test]
+    fn f32_whole() {
+        assert_eq!(from_str::<f32>("4"), Ok(4.0))
     }
     #[derive(Deserialize, Debug, PartialEq, Eq)]
     struct A;
