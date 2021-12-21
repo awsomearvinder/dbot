@@ -173,11 +173,18 @@ where
     impl_deserialize_float! {deserialize_f32, visit_f32}
     impl_deserialize_float! {deserialize_f64, visit_f64}
 
+    //NOTE: THIS MAY NOT BE WHAT YOU WANT. THIS SERIALIZES A CHAR NOT A GRAPHEME.
     fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: de::Visitor<'de>,
     {
-        unimplemented!()
+        self.input = self.input.trim();
+        if let Some(c) = self.input.chars().next() {
+            self.input = &self.input[char::len_utf8(c)..];
+            visitor.visit_char(c)
+        } else {
+            Err(Error::InvalidType)
+        }
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Self::Error>
@@ -335,6 +342,17 @@ mod tests {
         assert_eq!(
             from_str::<String>("\"test one two three\""),
             Ok(String::from("test one two three"))
+        )
+    }
+    #[test]
+    fn char_impl() {
+        assert_eq!(from_str::<char>("c"), Ok('c'))
+    }
+    #[test]
+    fn char_impl_then_string() {
+        assert_eq!(
+            from_str::<(char, String)>("c woah"),
+            Ok(('c', String::from("woah")))
         )
     }
     #[test]
